@@ -38,8 +38,8 @@ def main():
     optimizer = optim.AdamW(model.parameters(),lr = 0.0001)
 
     #Setting the number of epochs
-    epochs = 10
-
+    epochs = 1
+    best_val_loss = float("inf")
     for epoch in range(epochs):
         model.train()
         running_loss =0.0
@@ -57,4 +57,21 @@ def main():
         avg_train_loss = running_loss/len(train_loader)
         print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_train_loss:.4f}")
 
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for images,masks in val_loader:
+                images = images.to(device)
+                masks = masks.to(device)
+                outputs = model(images)
+                loss = criterion(outputs,masks)
 
+                val_loss += loss.item()
+
+        avg_val_loss = val_loss/len(val_loader)
+        print(f"Validation loss: {avg_val_loss:.4f}")
+
+        #Saving best model
+        if best_val_loss > avg_val_loss:
+            best_val_loss = avg_val_loss
+            torch.save(model.state_dict(),"best_unet2d.pth")
