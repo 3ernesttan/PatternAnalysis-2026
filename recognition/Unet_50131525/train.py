@@ -6,6 +6,19 @@ from dataset import HipMRIDataset
 from pathlib import Path
 import torch.nn as nn
 
+def dice_score(prediction,masks,class_id):
+    epsilon = 1e-6
+    pred_mask = (prediction == class_id)
+    true_mask = (masks == class_id)
+
+    #calculate the intersection,prediction and target
+    intersection = torch.sum(pred_mask*true_mask)
+    pred_total = torch.sum(pred_mask)
+    target = torch.sum(true_mask)
+
+    dice = ((2.0 * intersection + epsilon) / (pred_total+target+epsilon))
+    return dice
+
 def main():
     data_dir = Path("/home/ernest_tan/HipMRI_data")
 
@@ -18,8 +31,8 @@ def main():
     val_mask_dir = data_dir/"keras_slices_seg_validate"
 
     #initialize datasets
-    train_dataset = HipMRIDataset(train_img_dir, train_mask_dir)
-    val_dataset = HipMRIDataset(val_img_dir, val_mask_dir)
+    train_dataset = HipMRIDataset(data_dir, split="train")
+    val_dataset = HipMRIDataset(data_dir, split="validate")
 
     train_loader = DataLoader(train_dataset,batch_size=4,shuffle=True)
     val_loader = DataLoader(val_dataset,batch_size=4,shuffle=False)
@@ -59,6 +72,7 @@ def main():
 
         model.eval()
         val_loss = 0.0
+        dice_totals = [0.0]*4
         with torch.no_grad():
             for images,masks in val_loader:
                 images = images.to(device)
@@ -68,6 +82,24 @@ def main():
 
                 val_loss += loss.item()
 
+                #convert logits into predicted class labels
+                preds = torch.argmax(outputs,dim=1)
+
+                background_dice = dice_score(preds,masks,0)
+                dice1 = dice_score(preds,masks,1)
+                dice2 = dice_score(preds,masks,2)
+                dice3 = dice_score(preds,masks,3)
+
+                #accumulate dice scores
+                dice_totals[0] += background_dice.item()
+                dice_totals[1] += dice1.item()
+                dice_totals[2] += dice2.item()
+                dice_totals[3] += dice3.item()
+
+            avg_dice = [total / len(val_loader) for total in dice_totals]
+            for class_id, score in enumerate(avg_dice):
+                print(f"Class {class_id}: Dice = {score:.4f}")
+
         avg_val_loss = val_loss/len(val_loader)
         print(f"Validation loss: {avg_val_loss:.4f}")
 
@@ -75,3 +107,6 @@ def main():
         if best_val_loss > avg_val_loss:
             best_val_loss = avg_val_loss
             torch.save(model.state_dict(),"best_unet2d.pth")
+
+if __name__ == "__main__":
+    main()
