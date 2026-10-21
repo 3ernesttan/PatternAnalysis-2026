@@ -1,9 +1,5 @@
-from typing import Any
-
 import torch
 import torch.nn as nn
-from narwhals.stable import v1
-from torch.nn import MaxPool2d
 
 
 class DoubleConv(nn.Module):

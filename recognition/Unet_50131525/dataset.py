@@ -1,14 +1,9 @@
-from statistics import mean
-
 import nibabel as nib
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import glob
 import torch
-from torch.masked import std
 from torch.utils.data import DataLoader,Dataset
-from torch.utils.data.dataset import _T_co
+import torch.nn.functional as F
 
 data_path = "/home/ernest_tan/HipMRI_data"
 
@@ -45,21 +40,34 @@ class HipMRIDataset(Dataset):
         #Add dimension to the image
         image = image.unsqueeze(0)
 
+        image = (F.interpolate(image.unsqueeze(0),
+                              size = (256,128),
+                              mode = "bilinear",
+                              align_corners=False
+                               ).squeeze(0))
+
+        mask = F.interpolate(
+            mask.unsqueeze(0).unsqueeze(0).float(),
+            size=(256, 128),
+            mode="nearest"
+        ).squeeze(0).squeeze(0).long()
+
         return image,mask
 
-dataset = HipMRIDataset(data_path, split="train")
 
-image, mask = dataset[0]
+if __name__ == "__main__":
+    dataset = HipMRIDataset(data_path, split="train")
 
-print("Dataset size:", len(dataset))
-print("Image shape:", image.shape)
-print("Mask shape:", mask.shape)
-print("Mask labels:", torch.unique(mask))
+    image, mask = dataset[0]
 
-loader = DataLoader(dataset, batch_size=8, shuffle=True)
+    print("Dataset size:", len(dataset))
+    print("Image shape:", image.shape)
+    print("Mask shape:", mask.shape)
+    print("Mask labels:", torch.unique(mask))
 
-images, masks = next(iter(loader))
+    loader = DataLoader(dataset, batch_size=8, shuffle=True)
 
-print("Batch images:", images.shape)
-print("Batch masks:", masks.shape)
+    images, masks = next(iter(loader))
 
+    print("Batch images:", images.shape)
+    print("Batch masks:", masks.shape)

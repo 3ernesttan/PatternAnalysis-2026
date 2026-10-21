@@ -5,6 +5,7 @@ from modules import UNet2D
 from dataset import HipMRIDataset
 from pathlib import Path
 import torch.nn as nn
+from tqdm import tqdm
 
 def dice_score(prediction,masks,class_id):
     epsilon = 1e-6
@@ -35,6 +36,11 @@ def main():
     val_dataset = HipMRIDataset(data_dir, split="validate")
 
     train_loader = DataLoader(train_dataset,batch_size=4,shuffle=True)
+    images, masks = next(iter(train_loader))
+
+    print("Image shape:", images.shape)
+    print("Mask shape:", masks.shape)
+    print("Mask labels:", torch.unique(masks))
     val_loader = DataLoader(val_dataset,batch_size=4,shuffle=False)
     print(f"Train loader batches:{len(train_loader)}\n"
           f"Data loader batches:{len(val_loader)}")
@@ -42,7 +48,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device)
 
-    model = UNet2D(in_channels=1,num_classes=4).to(device)
+    model = UNet2D(in_channels=1,num_classes=6).to(device)
 
     #define loss function
     criterion = nn.CrossEntropyLoss()
@@ -51,12 +57,12 @@ def main():
     optimizer = optim.AdamW(model.parameters(),lr = 0.0001)
 
     #Setting the number of epochs
-    epochs = 1
+    epochs = 5
     best_val_loss = float("inf")
     for epoch in range(epochs):
         model.train()
         running_loss =0.0
-        for images,masks in train_loader:
+        for images, masks in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
             images = images.to(device)
             masks = masks.to(device)
             optimizer.zero_grad()
@@ -72,7 +78,7 @@ def main():
 
         model.eval()
         val_loss = 0.0
-        dice_totals = [0.0]*4
+        dice_totals = [0.0]*6
         with torch.no_grad():
             for images,masks in val_loader:
                 images = images.to(device)
@@ -89,12 +95,16 @@ def main():
                 dice1 = dice_score(preds,masks,1)
                 dice2 = dice_score(preds,masks,2)
                 dice3 = dice_score(preds,masks,3)
+                dice4 = dice_score(preds,masks,4)
+                dice5 = dice_score(preds,masks,5)
 
                 #accumulate dice scores
                 dice_totals[0] += background_dice.item()
                 dice_totals[1] += dice1.item()
                 dice_totals[2] += dice2.item()
                 dice_totals[3] += dice3.item()
+                dice_totals[4] += dice4.item()
+                dice_totals[5] += dice5.item()
 
             avg_dice = [total / len(val_loader) for total in dice_totals]
             for class_id, score in enumerate(avg_dice):
