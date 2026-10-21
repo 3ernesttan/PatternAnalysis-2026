@@ -37,3 +37,24 @@ def main():
     #define optimizer
     optimizer = optim.AdamW(model.parameters(),lr = 0.0001)
 
+    #Setting the number of epochs
+    epochs = 10
+
+    for epoch in range(epochs):
+        model.train()
+        running_loss =0.0
+        for images,masks in train_loader:
+            images = images.to(device)
+            masks = masks.to(device)
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs,masks)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+
+        avg_train_loss = running_loss/len(train_loader)
+        print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_train_loss:.4f}")
+
+
