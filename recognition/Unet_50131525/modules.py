@@ -7,12 +7,12 @@ class DoubleConv(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels,out_channels,kernel_size=3,padding=1),
-            nn.BatchNorm2d(out_channels),
+            nn.Conv3d(in_channels,out_channels,kernel_size=3,padding=1),
+            nn.BatchNorm3d(out_channels),
             nn.ReLU(inplace=True),
 
-            nn.Conv2d(out_channels,out_channels,kernel_size=3,padding=1),
-            nn.BatchNorm2d(out_channels),
+            nn.Conv3d(out_channels,out_channels,kernel_size=3,padding=1),
+            nn.BatchNorm3d(out_channels),
             nn.ReLU(inplace=True)
         )
 
@@ -24,7 +24,7 @@ class Down(nn.Module):
         super().__init__()
 
         self.down = nn.Sequential(
-            nn.MaxPool2d(kernel_size = 2),
+            nn.MaxPool3d(kernel_size = 2),
             DoubleConv(in_channels,out_channels)
         )
     def forward(self,x):
@@ -35,7 +35,7 @@ class Up(nn.Module):
         super().__init__()
 
         self.up = nn.Upsample(
-            scale_factor = 2,mode = "bilinear", align_corners= True
+            scale_factor = 2,mode = "trilinear", align_corners= False
         )
 
         self.conv = DoubleConv(in_channels + skip_channels, out_channels)
@@ -49,29 +49,29 @@ class Up(nn.Module):
 
         return x
 
-class UNet2D(nn.Module):
-    def __init__(self,in_channels = 1,num_classes = 4):
+class UNet3d(nn.Module):
+    def __init__(self,in_channels = 1,num_classes = 6):
         super().__init__()
 
         #initial convolution
-        self.inc = DoubleConv(in_channels, 64)
+        self.inc = DoubleConv(in_channels, 16)
 
         #encoder
-        self.down1 = Down(64,128)
-        self.down2 = Down(128,256)
-        self.down3 = Down(256,512)
+        self.down1 = Down(16,32)
+        self.down2 = Down(32,64)
+        self.down3 = Down(64,128)
 
         #bottleneck
-        self.down4 = Down(512,1024)
+        self.down4 = Down(128,256)
 
         #decoder
-        self.up1 = Up(1024,512,512)
-        self.up2 = Up(512,256,256)
-        self.up3 = Up(256,128,128)
-        self.up4 = Up(128,64,64)
+        self.up1 = Up(256,128,128)
+        self.up2 = Up(128,64,64)
+        self.up3 = Up(64,32,32)
+        self.up4 = Up(32,16,16)
 
         #output layer
-        self.outc = nn.Conv2d(64,num_classes,kernel_size=1)
+        self.outc = nn.Conv3d(16,num_classes,kernel_size=1)
 
     def forward(self,x):
         #encoder
@@ -89,3 +89,13 @@ class UNet2D(nn.Module):
 
         logits = self.outc(u4)
         return logits
+
+#Temporarily testing block
+if __name__ == "__main__":
+    model = UNet3d(in_channels=1,num_classes=6)
+    x = torch.randn(1,1,128,128,64)
+    with torch.no_grad():
+        output = model(x)
+
+    print("input shape:", x.shape)
+    print("Output shape:", output.shape)

@@ -20,7 +20,7 @@ class HipMRIDataset(Dataset):
         n_train = int(n*0.70)
         n_val = int(n*0.15)
 
-        patient_splits = {"trains": set(patients[:n_train]),
+        patient_splits = {"train": set(patients[:n_train]),
                           "validate": set(patients[n_train:n_train + n_val]),
                           "test": set(patients[n_train + n_val:])}
 
