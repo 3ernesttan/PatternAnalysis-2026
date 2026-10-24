@@ -1,18 +1,16 @@
 import nibabel as nib
-import os
-import glob
-import torch
+import os,glob,torch
 from torch.utils.data import DataLoader,Dataset
 import torch.nn.functional as F
 
-data_path = "/home/ernest_tan/HipMRI_data"
-
 class HipMRIDataset(Dataset):
     def __init__(self,data_path,split="train"):
-        self.image_dir = os.path.join(data_path, f"keras_slices_{split}")
-        self.mask_dir = os.path.join(data_path,f"keras_slices_seg_{split}")
+        self.image_dir = os.path.join(data_path, "semantic_MRs")
+        self.mask_dir = os.path.join(data_path,"semantic_labels_only")
 
-        self.image_files = sorted(glob.glob(os.path.join(self.image_dir, "*.nii.gz")))
+        self.image_files = sorted(glob.glob(os.path.join(self.image_dir, "*_LFOV.nii.gz")))
+
+
 
     def __len__(self):
         return len(self.image_files)
@@ -23,7 +21,7 @@ class HipMRIDataset(Dataset):
 
         #find its segmentation mask
         filename = os.path.basename(image_path)
-        mask_filename = filename.replace("case_","seg_", 1)
+        mask_filename = filename.replace("_LFOV","_SEMANTIC")
         mask_path = os.path.join(self.mask_dir, mask_filename)
 
         #load MRI and mask using nibabel
@@ -38,17 +36,15 @@ class HipMRIDataset(Dataset):
         mask = torch.tensor(mask,dtype=torch.long)
 
         #Add dimension to the image
-        image = image.unsqueeze(0)
-
-        image = (F.interpolate(image.unsqueeze(0),
-                              size = (256,128),
-                              mode = "bilinear",
+        image = (F.interpolate(image.unsqueeze(0).unsqueeze(0),
+                              size = (128,128,64),
+                              mode = "trilinear",
                               align_corners=False
                                ).squeeze(0))
 
         mask = F.interpolate(
             mask.unsqueeze(0).unsqueeze(0).float(),
-            size=(256, 128),
+            size=(128, 128,64),
             mode="nearest"
         ).squeeze(0).squeeze(0).long()
 
@@ -56,7 +52,9 @@ class HipMRIDataset(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = HipMRIDataset(data_path, split="train")
+    data_path = "/home/groups/comp3710/HipMRI_Study_open"
+
+    dataset = HipMRIDataset(data_path)
 
     image, mask = dataset[0]
 
@@ -64,10 +62,3 @@ if __name__ == "__main__":
     print("Image shape:", image.shape)
     print("Mask shape:", mask.shape)
     print("Mask labels:", torch.unique(mask))
-
-    loader = DataLoader(dataset, batch_size=8, shuffle=True)
-
-    images, masks = next(iter(loader))
-
-    print("Batch images:", images.shape)
-    print("Batch masks:", masks.shape)
