@@ -1,17 +1,35 @@
 import nibabel as nib
-import os,glob,torch
+import os,glob,torch,random
 from torch.utils.data import DataLoader,Dataset
 import torch.nn.functional as F
 
 class HipMRIDataset(Dataset):
     def __init__(self,data_path,split="train"):
         self.image_dir = os.path.join(data_path, "semantic_MRs")
-        self.mask_dir = os.path.join(data_path,"semantic_labels_only")
+        self.mask_dir = os.path.join(data_path,"semantic_labels_only")\
 
-        self.image_files = sorted(glob.glob(os.path.join(self.image_dir, "*_LFOV.nii.gz")))
+        all_files = sorted(glob.glob(os.path.join(self.image_dir, "*_LFOV.nii.gz")))
 
+        #exttract patient ID form Filenames
+        patients = sorted(set(os.path.basename(f).split("_")[0] for f in all_files))
+        rng = random.Random(42)
+        rng.shuffle(patients)
 
+        #Spltting patients into train,validation and testing
+        n = len(patients)
+        n_train = int(n*0.70)
+        n_val = int(n*0.15)
 
+        patient_splits = {"trains": set(patients[:n_train]),
+                          "validate": set(patients[n_train:n_train + n_val]),
+                          "test": set(patients[n_train + n_val:])}
+
+        if split not in patient_splits:
+            raise ValueError(f"Unknown split: {split}")
+
+        selected_patients = patient_splits[split]
+        self.image_files = [f for f in all_files
+        if os.path.basename(f).split("_")[0] in selected_patients]
     def __len__(self):
         return len(self.image_files)
 
@@ -54,11 +72,6 @@ class HipMRIDataset(Dataset):
 if __name__ == "__main__":
     data_path = "/home/groups/comp3710/HipMRI_Study_open"
 
-    dataset = HipMRIDataset(data_path)
-
-    image, mask = dataset[0]
-
-    print("Dataset size:", len(dataset))
-    print("Image shape:", image.shape)
-    print("Mask shape:", mask.shape)
-    print("Mask labels:", torch.unique(mask))
+    for split in ["train", "validate", "test"]:
+        dataset = HipMRIDataset(data_path, split=split)
+        print(f"{split}: {len(dataset)} volumes")
