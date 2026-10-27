@@ -20,6 +20,20 @@ def dice_score(prediction,masks,class_id):
     dice = ((2.0 * intersection + epsilon) / (pred_total+target+epsilon))
     return dice
 
+def dice_loss(outputs,masks):
+    probabilities = torch.softmax(outputs,dim=1)
+    targets = nn.functional.one_hot(
+        masks.long(), num_classes=6).permute(0,4,1,2,3).float()
+
+    #calculate dice for each class
+    dims = (0,2,3,4)
+    intersection = torch.sum(probabilities*targets,dim = dims)
+    denominator = torch.sum(probabilities+targets,dim = dims)
+
+    dice = (2*intersection +1e-6)/(denominator+1e-6)
+
+    return 1 - dice[1:].mean()
+
 def main():
     data_dir = Path("/home/groups/comp3710/HipMRI_Study_open")
 
@@ -43,12 +57,18 @@ def main():
     #define loss function
     criterion = nn.CrossEntropyLoss()
 
+    def combined_loss(outputs,masks):
+        ce = criterion(outputs,masks)
+        dice = dice_loss(outputs,masks)
+        return ce+dice
+
     #define optimizer
     optimizer = optim.AdamW(model.parameters(),lr = 0.0001)
 
     #Setting the number of epochs
-    epochs = 5
+    epochs = 20
     best_val_loss = float("inf")
+    best_class5_dice = 0.0
     for epoch in range(epochs):
         model.train()
         running_loss =0.0
@@ -57,7 +77,7 @@ def main():
             masks = masks.to(device)
             optimizer.zero_grad()
             outputs = model(images)
-            loss = criterion(outputs,masks)
+            loss = combined_loss(outputs,masks)
             loss.backward()
             optimizer.step()
 
@@ -78,7 +98,7 @@ def main():
                 images = images.to(device)
                 masks = masks.to(device)
                 outputs = model(images)
-                loss = criterion(outputs,masks)
+                loss = combined_loss(outputs,masks)
 
                 val_loss += loss.item()
 
@@ -113,6 +133,16 @@ def main():
         if best_val_loss > avg_val_loss:
             best_val_loss = avg_val_loss
             torch.save(model.state_dict(),"best_UNet3d.pth")
+
+        denominator = pred_totals[5] + target_totals[5]
+        if denominator > 0:
+            class5_dice = 2*intersections[5]/denominator
+
+            if class5_dice > best_class5_dice:
+                best_class5_dice = class5_dice
+                torch.save(model.state_dict(),"best_Unet_class5.pth")
+                print(f"Saved best Class 5 model: Dice = {class5_dice:.4f}")
+
 
 if __name__ == "__main__":
     main()
