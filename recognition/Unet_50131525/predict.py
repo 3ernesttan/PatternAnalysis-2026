@@ -63,7 +63,8 @@ def main():
                     ax.axis("off")
 
                 plt.tight_layout()
-                plt.show()
+                plt.savefig("unet3d_predictions.png",dpi=150)
+                plt.close()
 
             for class_id in range(num_classes):
                 pred_mask = (predictions == class_id)
