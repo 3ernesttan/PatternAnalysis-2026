@@ -2,11 +2,11 @@ import torch
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from pathlib import Path
-from modules import UNet2D
+from modules import UNet3d
 from dataset import HipMRIDataset
 
 def main():
-    data_dir = Path("/home/ernest_tan/HipMRI_data")
+    data_dir = Path("/home/groups/comp3710/HipMRI_Study_open")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -14,12 +14,12 @@ def main():
     test_dataset = HipMRIDataset(data_dir,split='test')
 
     #create a data loader
-    test_loader = DataLoader(test_dataset,batch_size=4,shuffle=False)
+    test_loader = DataLoader(test_dataset,batch_size=1,shuffle=False)
 
     #initialise the same architecture used during training
-    model = UNet2D(in_channels=1, num_classes=6).to(device)
+    model = UNet3d(in_channels=1, num_classes=6).to(device)
 
-    checkpoint = torch.load("best_unet2d.pth",map_location=device,
+    checkpoint = torch.load("best_Unet_class5.pth",map_location=device,
                             weights_only=True)
     model.load_state_dict(checkpoint)
     model.eval()
@@ -41,6 +41,12 @@ def main():
                 mri = images[0,0].cpu().numpy()
                 true_mask = masks[0].cpu().numpy()
                 pred_mask = predictions[0].cpu().numpy()
+
+                z = (true_mask == 5).sum(axis=(1,0)).argmax()
+
+                mri = mri[:,:,z]
+                true_mask = true_mask[:,:,z]
+                pred_mask = pred_mask[:,:,z]
 
                 fig, axes = plt.subplots(1, 3, figsize=(12, 4))
 
