@@ -19,7 +19,7 @@ def main():
     #initialise the same architecture used during training
     model = UNet3d(in_channels=1, num_classes=6).to(device)
 
-    checkpoint = torch.load("best_Unet_class5.pth",map_location=device,
+    checkpoint = torch.load("best_DeepSupervision_class5.pth",map_location=device,
                             weights_only=True)
     model.load_state_dict(checkpoint)
     model.eval()
