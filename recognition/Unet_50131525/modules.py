@@ -19,13 +19,38 @@ class DoubleConv(nn.Module):
     def forward(self,x):
         return self.conv(x)
 
+class ResidualBlock3D(nn.Module):
+    def __init__(self,in_channels,out_channels):
+        super().__init__()
+
+        self.conv = nn.Sequential(
+            nn.Conv3d(in_channels,out_channels,kernel_size=3,padding=1),
+            nn.BatchNorm3d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(out_channels,out_channels,kernel_size=3,padding=1),
+            nn.BatchNorm3d(out_channels)
+        )
+
+        self.shortcut = (
+            nn.Identity()
+            if in_channels == out_channels
+            else nn.Conv3d(in_channels,out_channels,kernel_size=1)
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self,x):
+        residual = self.shortcut(x)
+        out = self.conv(x)
+        return self.relu(out+residual)
+
 class Down(nn.Module):
     def __init__(self, in_channels,out_channels):
         super().__init__()
 
         self.down = nn.Sequential(
             nn.MaxPool3d(kernel_size = 2),
-            DoubleConv(in_channels,out_channels)
+            ResidualBlock3D(in_channels,out_channels)
         )
     def forward(self,x):
         return self.down(x)
@@ -38,7 +63,7 @@ class Up(nn.Module):
             scale_factor = 2,mode = "trilinear", align_corners= False
         )
 
-        self.conv = DoubleConv(in_channels + skip_channels, out_channels)
+        self.conv = ResidualBlock3D(in_channels + skip_channels, out_channels)
 
     def forward(self,x,skip):
         x = self.up(x)
@@ -54,7 +79,7 @@ class UNet3d(nn.Module):
         super().__init__()
 
         #initial convolution
-        self.inc = DoubleConv(in_channels, 16)
+        self.inc = ResidualBlock3D(in_channels, 16)
 
         #encoder
         self.down1 = Down(16,32)
@@ -93,7 +118,9 @@ class UNet3d(nn.Module):
 #Temporarily testing block
 if __name__ == "__main__":
     model = UNet3d(in_channels=1,num_classes=6)
-    x = torch.randn(1,1,128,128,64)
+    x = torch.randn(1,1,32,32,32)
+
+    model.eval()
     with torch.no_grad():
         output = model(x)
 
