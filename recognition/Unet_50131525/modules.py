@@ -97,6 +97,8 @@ class UNet3d(nn.Module):
 
         #output layer
         self.outc = nn.Conv3d(16,num_classes,kernel_size=1)
+        self.aux2 = nn.Conv3d(64,num_classes,kernel_size=1)
+        self.aux3 = nn.Conv3d(32,num_classes,kernel_size=1)
 
     def forward(self,x):
         #encoder
@@ -112,17 +114,34 @@ class UNet3d(nn.Module):
         u3 = self.up3(u2,x2)
         u4 = self.up4(u3,x1)
 
+        #main segmentation output
         logits = self.outc(u4)
+
+        #Auxiliary segmentation outputs
+        aux2 = self.aux2(u2)
+        aux3 = self.aux3(u3)
+
+        if self.training:
+            return logits,aux2,aux3
+
         return logits
 
 #Temporarily testing block
 if __name__ == "__main__":
-    model = UNet3d(in_channels=1,num_classes=6)
-    x = torch.randn(1,1,32,32,32)
+    model = UNet3d(in_channels=1, num_classes=6)
+    x = torch.randn(1, 1, 32, 32, 32)
+
+    model.train()
+
+    with torch.no_grad():
+        outputs = model(x)
+
+    for i, output in enumerate(outputs):
+        print(f"Output {i}: {output.shape}")
 
     model.eval()
-    with torch.no_grad():
-        output = model(x)
 
-    print("input shape:", x.shape)
-    print("Output shape:", output.shape)
+    with torch.no_grad():
+        prediction = model(x)
+
+    print("Evaluation output:", prediction.shape)

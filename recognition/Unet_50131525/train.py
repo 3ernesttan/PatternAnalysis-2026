@@ -6,6 +6,7 @@ from dataset import HipMRIDataset
 from pathlib import Path
 import torch.nn as nn
 from tqdm import tqdm
+import torch.nn.functional as F
 
 def dice_score(prediction,masks,class_id):
     epsilon = 1e-6
@@ -58,9 +59,27 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     def combined_loss(outputs,masks):
-        ce = criterion(outputs,masks)
-        dice = dice_loss(outputs,masks)
-        return ce+dice
+        if not isinstance(outputs, tuple):
+            return criterion(outputs, masks) + dice_loss(outputs, masks)
+
+        logits,aux2,aux3 = outputs
+        main_loss = criterion(logits, masks) + dice_loss(logits, masks)
+        mask2 = F.interpolate(
+            masks.unsqueeze(1).float(),
+            size = aux2.shape[2:],
+            mode = "nearest"
+        ).squeeze(1).long()
+
+        mask3 = F.interpolate(
+            masks.unsqueeze(1).float(),
+            size=aux3.shape[2:],
+            mode="nearest"
+        ).squeeze(1).long()
+
+        loss2 = criterion(aux2,mask2) + dice_loss(aux2,mask2)
+        loss3 = criterion(aux3, mask3) + dice_loss(aux3, mask3)
+
+        return main_loss+0.25*loss2+0.5*loss3
 
     #define optimizer
     optimizer = optim.AdamW(model.parameters(),lr = 0.0001)
@@ -132,7 +151,7 @@ def main():
         #Saving best model
         if best_val_loss > avg_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(),"best_UNet3d.pth")
+            torch.save(model.state_dict(), "best_DeepSupervision_UNet3d.pth")
 
         denominator = pred_totals[5] + target_totals[5]
         if denominator > 0:
@@ -140,7 +159,7 @@ def main():
 
             if class5_dice > best_class5_dice:
                 best_class5_dice = class5_dice
-                torch.save(model.state_dict(),"best_Unet_class5.pth")
+                torch.save(model.state_dict(), "best_DeepSupervision_class5.pth")
                 print(f"Saved best Class 5 model: Dice = {class5_dice:.4f}")
 
 
