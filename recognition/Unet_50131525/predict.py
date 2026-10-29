@@ -79,8 +79,11 @@ def main():
                 true_counts[class_id] += target.item()
 
     dice = (2 * intersections + 1e-6)/(pred_counts + true_counts + 1e-6)
+    union = pred_counts + true_counts - intersections
+    iou = (intersections + 1e-6) / (union + 1e-6)
+
     for class_id, score in enumerate(dice):
-        print(f"Class {class_id}: Dice = {score.item():.4f}")
+        print(f"Class {class_id}: Dice = {score.item():.4f},Iou = {iou[class_id]:.4f}")
 
     print("Test images:", len(test_dataset))
     print("Test batches:", len(test_loader))
