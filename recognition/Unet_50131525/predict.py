@@ -1,5 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
+from sympy import false
 from torch.utils.data import DataLoader
 from pathlib import Path
 from modules import UNet3d
@@ -19,9 +20,9 @@ def main():
     #initialise the same architecture used during training
     model = UNet3d(in_channels=1, num_classes=6).to(device)
 
-    checkpoint = torch.load("best_DeepSupervision_class5.pth",map_location=device,
+    checkpoint = torch.load("best_unet_class5.pth",map_location=device,
                             weights_only=True)
-    model.load_state_dict(checkpoint)
+    model.load_state_dict(checkpoint,strict=false)
     model.eval()
 
     num_classes = 6
