@@ -9,6 +9,11 @@ def main():
     data_dir = Path("/home/groups/comp3710/HipMRI_Study_open")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Device:", device)
+    print("CUDA available:", torch.cuda.is_available())
+
+    if torch.cuda.is_available():
+        print("GPU:", torch.cuda.get_device_name(0))
 
     #load the test dataset
     test_dataset = HipMRIDataset(data_dir,split='test')
