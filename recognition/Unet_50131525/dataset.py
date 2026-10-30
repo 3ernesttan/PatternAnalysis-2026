@@ -10,12 +10,12 @@ class HipMRIDataset(Dataset):
 
         all_files = sorted(glob.glob(os.path.join(self.image_dir, "*_LFOV.nii.gz")))
 
-        #exttract patient ID form Filenames
+        #extract patient ID form Filenames
         patients = sorted(set(os.path.basename(f).split("_")[0] for f in all_files))
         rng = random.Random(42)
         rng.shuffle(patients)
 
-        #Spltting patients into train,validation and testing
+        #Splitting patients into train,validation and testing
         n = len(patients)
         n_train = int(n*0.70)
         n_val = int(n*0.15)
