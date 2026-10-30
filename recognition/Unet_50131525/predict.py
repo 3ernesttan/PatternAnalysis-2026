@@ -39,6 +39,8 @@ def main():
     intersections = torch.zeros(num_classes,dtype=torch.float64)
     pred_counts = torch.zeros(num_classes,dtype=torch.float64)
     true_counts = torch.zeros(num_classes,dtype=torch.float64)
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
 
     with (torch.no_grad()):
         for batch_idx, (images, masks) in enumerate(test_loader):
@@ -88,6 +90,10 @@ def main():
                 intersections[class_id] += intersection.item()
                 pred_counts[class_id] += pred_total.item()
                 true_counts[class_id] += target.item()
+
+    if device.type == "cuda":
+        peak_vram = torch.cuda.max_memory_allocated(device) / 1024 ** 3
+        print(f"Peak GPU VRAM: {peak_vram:.3f} GB")
 
     dice = (2 * intersections + 1e-6)/(pred_counts + true_counts + 1e-6)
     union = pred_counts + true_counts - intersections
