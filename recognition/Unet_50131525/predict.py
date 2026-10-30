@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 from modules import UNet3d
 from dataset import HipMRIDataset
+import time
 
 def main():
     data_dir = Path("/home/groups/comp3710/HipMRI_Study_open")
@@ -35,11 +36,11 @@ def main():
     print(f"Advanced parameters: {total_params:,}")
     print(f"Additional parameters: {aux_params:,}")
 
-    checkpoint = torch.load("best_unet_class5.pth",map_location=device,
+    checkpoint = torch.load("best_Unet_class5.pth",map_location=device,
                             weights_only=True)
     model.load_state_dict(checkpoint,strict=False)
     model.eval()
-
+    inference_times = []
     num_classes = 6
     intersections = torch.zeros(num_classes,dtype=torch.float64)
     pred_counts = torch.zeros(num_classes,dtype=torch.float64)
@@ -52,8 +53,19 @@ def main():
             images = images.to(device)
             masks = masks.to(device)
 
+            if device.type == "cuda":
+                torch.cuda.synchronize()
+
+            start = time.perf_counter()
+
             outputs = model(images)
-            predictions = torch.argmax(outputs,dim=1)
+
+            if device.type == "cuda":
+                torch.cuda.synchronize()
+
+            inference_times.append(time.perf_counter() - start)
+
+            predictions = torch.argmax(outputs, dim=1)
 
             if batch_idx == 0:
                 mri = images[0,0].cpu().numpy()
@@ -99,6 +111,9 @@ def main():
     if device.type == "cuda":
         peak_vram = torch.cuda.max_memory_allocated(device) / 1024 ** 3
         print(f"Peak GPU VRAM: {peak_vram:.3f} GB")
+    avg_time = sum(inference_times) / len(inference_times)
+
+    print(f"Average inference time: {avg_time * 1000:.2f} ms/volume")
 
     dice = (2 * intersections + 1e-6)/(pred_counts + true_counts + 1e-6)
     union = pred_counts + true_counts - intersections
