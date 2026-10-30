@@ -1,6 +1,5 @@
 import torch
 import matplotlib.pyplot as plt
-from sympy import false
 from torch.utils.data import DataLoader
 from pathlib import Path
 from modules import UNet3d
@@ -19,10 +18,21 @@ def main():
 
     #initialise the same architecture used during training
     model = UNet3d(in_channels=1, num_classes=6).to(device)
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f"Total parameters: {total_params:,}")
+    print(f"Trainable parameters: {trainable_params:,}")
+    aux_params = sum(p.numel() for p in model.aux2.parameters())
+    aux_params += sum(p.numel() for p in model.aux3.parameters())
+
+    print(f"Intermediate parameters: {total_params - aux_params:,}")
+    print(f"Advanced parameters: {total_params:,}")
+    print(f"Additional parameters: {aux_params:,}")
 
     checkpoint = torch.load("best_unet_class5.pth",map_location=device,
                             weights_only=True)
-    model.load_state_dict(checkpoint,strict=false)
+    model.load_state_dict(checkpoint,strict=False)
     model.eval()
 
     num_classes = 6
@@ -64,7 +74,7 @@ def main():
                     ax.axis("off")
 
                 plt.tight_layout()
-                plt.savefig("unet3d_predictions.png",dpi=150)
+                plt.savefig("intermediate_predictions.png",dpi=150)
                 plt.close()
 
             for class_id in range(num_classes):
