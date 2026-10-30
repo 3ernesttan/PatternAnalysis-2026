@@ -36,15 +36,16 @@ def main():
     print(f"Advanced parameters: {total_params:,}")
     print(f"Additional parameters: {aux_params:,}")
 
-    checkpoint = torch.load("best_Unet_class5.pth",map_location=device,
+    checkpoint = torch.load("best_DeepSupervision_class5.pth",map_location=device,
                             weights_only=True)
-    model.load_state_dict(checkpoint,strict=False)
+    model.load_state_dict(checkpoint,strict=True)
     model.eval()
     inference_times = []
     num_classes = 6
     intersections = torch.zeros(num_classes,dtype=torch.float64)
     pred_counts = torch.zeros(num_classes,dtype=torch.float64)
     true_counts = torch.zeros(num_classes,dtype=torch.float64)
+    case_scores = []
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
 
@@ -66,13 +67,22 @@ def main():
             inference_times.append(time.perf_counter() - start)
 
             predictions = torch.argmax(outputs, dim=1)
+            pred5 = (predictions == 5)
+            true5 = (masks == 5)
+
+            intersection5 = (pred5 & true5).sum().item()
+            total5 = pred5.sum().item() + true5.sum().item()
+
+            dice5 = (2 * intersection5 / total5) if total5 > 0 else 1.0
+
+            case_scores.append((batch_idx, dice5))
 
             if batch_idx == 0:
                 mri = images[0,0].cpu().numpy()
                 true_mask = masks[0].cpu().numpy()
                 pred_mask = predictions[0].cpu().numpy()
 
-                z = (true_mask == 5).sum(axis=(1,0)).argmax()
+                z = (true_mask == 5).sum(axis=(0,1)).argmax()
 
                 mri = mri[:,:,z]
                 true_mask = true_mask[:,:,z]
@@ -93,7 +103,7 @@ def main():
                     ax.axis("off")
 
                 plt.tight_layout()
-                plt.savefig("intermediate_predictions.png",dpi=150)
+                plt.savefig("advanced_predictions.png",dpi=150)
                 plt.close()
 
             for class_id in range(num_classes):
@@ -114,6 +124,13 @@ def main():
     avg_time = sum(inference_times) / len(inference_times)
 
     print(f"Average inference time: {avg_time * 1000:.2f} ms/volume")
+
+    case_scores.sort(key=lambda x: x[1])
+
+    print("\nWorst 3 Class 5 segmentation cases:")
+
+    for case_idx, score in case_scores[:3]:
+        print(f"Volume {case_idx}: Dice = {score:.4f}")
 
     dice = (2 * intersections + 1e-6)/(pred_counts + true_counts + 1e-6)
     union = pred_counts + true_counts - intersections
