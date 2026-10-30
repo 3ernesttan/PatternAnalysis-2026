@@ -77,7 +77,7 @@ def main():
 
             case_scores.append((batch_idx, dice5))
 
-            if batch_idx in  [7,122,13]:
+            if batch_idx in  [12,13,17]:
                 mri = images[0,0].cpu().numpy()
                 true_mask = masks[0].cpu().numpy()
                 pred_mask = predictions[0].cpu().numpy()
