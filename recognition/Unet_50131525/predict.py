@@ -77,18 +77,22 @@ def main():
 
             case_scores.append((batch_idx, dice5))
 
-            if batch_idx == 0:
+            if batch_idx in  [7,122,13]:
                 mri = images[0,0].cpu().numpy()
                 true_mask = masks[0].cpu().numpy()
                 pred_mask = predictions[0].cpu().numpy()
+                false_positive = (pred_mask == 5) & (true_mask != 5)
+                false_negative = (true_mask == 5) & (pred_mask != 5)
 
                 z = (true_mask == 5).sum(axis=(0,1)).argmax()
 
                 mri = mri[:,:,z]
                 true_mask = true_mask[:,:,z]
                 pred_mask = pred_mask[:,:,z]
+                false_positive = false_positive[:, :, z]
+                false_negative = false_negative[:, :, z]
 
-                fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+                fig, axes = plt.subplots(1, 4, figsize=(16, 4))
 
                 axes[0].imshow(mri, cmap="gray")
                 axes[0].set_title("Original MRI")
@@ -99,11 +103,16 @@ def main():
                 axes[2].imshow(pred_mask,cmap="tab10",vmin=0,vmax=5,interpolation="nearest")
                 axes[2].set_title("U-Net Prediction")
 
+                axes[3].imshow(mri, cmap="gray")
+                axes[3].imshow(false_positive, cmap="Reds", alpha=0.6)
+                axes[3].imshow(false_negative, cmap="Blues", alpha=0.6)
+                axes[3].set_title("Red: FP | Blue: FN")
+
                 for ax in axes:
                     ax.axis("off")
 
                 plt.tight_layout()
-                plt.savefig("advanced_predictions.png",dpi=150)
+                plt.savefig(f"failure_case_{batch_idx}.png", dpi=150)
                 plt.close()
 
             for class_id in range(num_classes):
